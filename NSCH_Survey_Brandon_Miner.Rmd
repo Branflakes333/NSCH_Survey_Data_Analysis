@@ -1,0 +1,132 @@
+---
+title: "STAT560 National Survey of Children's Health "
+author: "Brandon Miner"
+date: ""
+output: 
+    html_document
+---
+
+
+
+
+
+
+### 1. About the survey
+
+#### Summary
+
+ The 2022 National Survey of Children's Health (NSCH) was conducted by the U.S. Census Bureau for the Health Resources and Services Administration, Maternal and Child Health Bureau (HRSA MCHB) within the U.S. Department of Health and Human Services (HHS). The purpose of the NSCH is to “collect information on factors related to the well-being of children, including access to and quality of health care, family interactions, parental health, school and after-school experiences, and neighborhood characteristics.”
+
+
+The survey design is a two-Stage design.
+
+Stage-1 Stratified Sample of households without Replacement.
+
+Stage-2 Cluster questionnaire for selected household parents.
+
+PSU: households
+
+SSU: parents
+
+
+#### Estimation
+
+The three types of weights in the data set is:
+
+  C_FWS: Child Weight
+  
+  FWC: Selected Child Weight
+  
+  FWH: Household Weight
+  
+  
+To set up the design, we need the clusters(~HHID), strata(~STRATUM and ~FIPSST combined into on column named ~strat), weights(~FWC), and data(nsch_data).
+
+  HHID: Topical variable cluster
+  
+  STRATUM: Sampling stratum(1, 2A)
+  
+  FIPSST: State FIPS Code(1, 2, 3, ..., 56)
+  
+  strat: Combination of STRATUM and FIPSST (1-1, 1-2A, 2-1, 2-2A, ..., 56-1, 56-2A)
+  
+  FWC:Selected Child Weight
+  
+  nsch_data: dataframe of NSCH data from nsch_2022e_topical.sas7bdat
+
+
+### 2. Estimates using survey package
+
+
+
+#### Question 1 
+
+Estimate the average family poverty ratio using the variable ``FPL_I1`` , along with SE. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, comment = NA, warning = FALSE)
+library(survey)
+```
+
+```{r}
+# Reading in subset data file(Original too big)
+nsch_data = read.csv("C:/Users/brand/Downloads/nsch_subset.csv")
+```
+
+```{r}
+# Creating survey design
+nsch_data$strat <- paste(nsch_data$FIPSST,nsch_data$STRATUM, sep= "-")
+nsch_design = svydesign(ids = ~HHID,strata = ~strat, weights = ~FWC, data = nsch_data)
+```
+
+```{r}
+svymean(~FPL_I1,nsch_design, na.rm = TRUE)
+```
+  From the output above, we see that the average poverty ratio is estimated to be 256.79 with an SE of 1.1622. This implies that the average ratio percentage above or below the poverty line (with >100% being below the poverty line) of children's families is 256.79% on average. This means that on average child's family is not below the poverty line.
+
+
+#### Quesiton 2
+
+Certain governmental agencies use income and poverty levels to determine eligibility for programs. Estimate the proportions of children with Family poverty ratio less than 200. 
+```{r}
+svymean(~FPL_I1 < 200,nsch_design, na.rm = TRUE)
+```
+  From the output above we see that the proportion of children with a family poverty ratio above 200% is 61.932% with an SE of 0.44%. This supports our previous finding that more families with children are above the poverty line than below by at least 100%.
+
+
+#### Question 3
+
+
+Estimate the average number of family members (``FAMCOUNT``) along with SE.
+```{r}
+svymean(~FAMCOUNT,nsch_design, na.rm = TRUE)
+```
+  The average number of family members with children is 4.2663 with an SE of 1.17%, or approximately 4. A possible labeling for these 4 members could be two parents and two children.
+
+
+#### Question 4
+
+Estimate the proportion of families with the number of members greater than 4, along with SE.
+```{r}
+svymean(~FAMCOUNT > 4,nsch_design, na.rm = TRUE)
+```
+  The proportion of families with the number of members greater than 4 is 39.728% with a SE of 0.45%. This means more families, given they have at least one child, have less than or equal to 4 members.
+
+
+#### Question 5
+
+Estimate the difference of family poverty ratio between large families (the number of members is greater than 4) and small families (the number of members is less than or equal to 4). Do you think the difference is significant? Why? What does it mean?
+```{r}
+fam <- svyby(formula= ~FPL_I1,by= nsch_data$FAMCOUNT > 4,FUN= svymean,design= nsch_design, na.rm = TRUE)
+fam_diff <- abs(fam[["FPL_I1"]][2] - fam[["FPL_I1"]][1])
+print(fam_diff)
+```
+  I believe the deference is significant because the output implies that children's families with more than 4 family members have a 40.91996% lower family poverty ratio than those with 4 or less family members.
+
+
+#### Bonus question 
+
+Give the estimates of family poverty ratio for each state, along with SE. 
+```{r}
+fpl_state <- svyby(formula= ~FPL_I1,by= nsch_data$FIPSST,FUN= svymean,design= nsch_design, na.rm = TRUE)
+fpl_state
+```
