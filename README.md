@@ -1,2 +1,2 @@
 # NSCH_Survey_Data_Analysis
-Final Project from my "STAT560: Sample Survey" class
+Final Project from my Sample Surveys class
